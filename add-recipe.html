@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add New Recipe</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .back-btn {
+            color: #666;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .back-btn:hover {
+            color: #333;
+        }
+
+        .form-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        textarea {
+            height: 150px;
+            font-family: monospace;
+            resize: vertical;
+        }
+
+        .checkbox-group {
+            margin: 15px 0;
+        }
+
+        .checkbox-group label {
+            display: inline;
+            font-weight: normal;
+            margin-left: 8px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .form-container {
+                padding: 15px;
+            }
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            background-color: white;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Add New Recipe</h1>
+        <a href="index.html" class="back-btn">← Back to Recipes</a>
+    </div>
+
+    <div class="form-container">
+        <form id="recipeForm">
+            <div class="form-group">
+                <label for="title">Recipe Name:</label>
+                <input type="text" id="title" name="title" required>
+            </div>
+            
+              <div class="form-group">
+                <label for="protein">Protein:</label>
+                <select id="protein" name="protein" required>
+                    <option value="Beef">Beef</option>
+                    <option value="Chicken">Chicken</option>
+                    <option value="Lamb">Lamb</option>
+                    <option value="Tofu">Tofu</option>
+                    <option value="TVP">TVP</option>
+                    <option value="Tuna">Tuna</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="ingredients">Ingredients (one per line):</label>
+                <textarea id="ingredients" name="ingredients" required 
+                          placeholder="Enter each ingredient on a new line:&#10;1 cup flour&#10;2 eggs&#10;1/2 cup sugar"></textarea>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="boxable" name="boxable">
+                <label for="boxable">Boxable (can be easily put in a takeaway container)</label>
+            </div>
+            
+            <div class="form-group">
+                <label for="notes">Notes (optional):</label>
+                <textarea id="notes" name="notes"></textarea>
+            </div>
+            
+            <button type="submit">Save Recipe</button>
+        </form>
+        
+        <div id="message"></div>
+    </div>
+
+    <script>
+        // Initialize Supabase client
+        const supabaseUrl = 'https://qdmkzjjxsoseggwwmray.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkbWt6amp4c29zZWdnd3dtcmF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM1MzAyNzEsImV4cCI6MjA0OTEwNjI3MX0.A5pQxsleHRntqc0BT_MFsVWQiNscO7Cn9YVGAf5RBVo'
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+        
+        // Handle form submission
+        document.getElementById('recipeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const message = document.getElementById('message');
+            message.style.display = 'block';
+            
+            try {
+              const { data, error } = await supabaseClient
+                .from('recipes')
+                .insert([{
+                    title: document.getElementById('title').value,
+                    protein: document.getElementById('protein').value,  // Add this line
+                    ingredients: document.getElementById('ingredients').value,
+                    boxable: document.getElementById('boxable').checked,
+                    notes: document.getElementById('notes').value
+                }]);
+                
+                if (error) throw error;
+                
+                message.className = 'success';
+                message.textContent = 'Recipe saved successfully!';
+                document.getElementById('recipeForm').reset();
+                
+                // Redirect to main page after short delay
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+                
+            } catch (error) {
+                message.className = 'error';
+                message.textContent = 'Error saving recipe. Please try again.';
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

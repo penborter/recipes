@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Recipes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .search-container {
+            width: 100%;
+            margin: 10px 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .filter-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .add-recipe-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 16px;
+        }
+
+        .add-recipe-btn:hover {
+            background-color: #45a049;
+        }
+
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .recipe-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .recipe-actions {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .edit-btn, .delete-btn {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: white;
+        }
+
+        .edit-btn {
+            background-color: #2196F3;
+        }
+
+        .delete-btn {
+            background-color: #f44336;
+        }
+
+        .recipe-card h3 {
+            margin-right: 100px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .boxable-tag {
+            background-color: #4CAF50;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        .ingredients-list {
+            list-style-type: none;
+            margin: 10px 0;
+        }
+
+        .ingredients-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .notes {
+            margin-top: 15px;
+            font-style: italic;
+            color: #666;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .close {
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .modal textarea, .modal input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .modal textarea {
+            height: 150px;
+            font-family: monospace;
+        }
+
+        .modal button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .recipe-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .search-container {
+                flex-direction: column;
+            }
+
+            .filter-container {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .modal-content {
+                margin: 5% auto;
+                width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>My Recipes</h1>
+        <a href="add-recipe.html" class="add-recipe-btn">Add New Recipe</a>
+    </div>
+
+    <div class="search-container">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search recipes...">
+        <div class="filter-container">
+          <label>
+              <input type="checkbox" id="showIngredientsFilter" checked> 
+              Show ingredients
+          </label>
+      </div>
+    </div>
+    
+    <div id="recipes" class="recipe-grid">
+        <!-- Recipes will be loaded here -->
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Recipe</h2>
+                <span class="close">&times;</span>
+            </div>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <div class="form-group">
+                    <label for="editTitle">Recipe Name:</label>
+                    <input type="text" id="editTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="editProtein">Protein:</label>
+                    <select id="editProtein" required>
+                        <option value="Beef">Beef</option>
+                        <option value="Chicken">Chicken</option>
+                        <option value="Lamb">Lamb</option>
+                        <option value="Tofu">Tofu</option>
+                        <option value="TVP">TVP</option>
+                        <option value="Tuna">Tuna</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editIngredients">Ingredients (one per line):</label>
+                    <textarea id="editIngredients" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="editBoxable">
+                        Boxable
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="editNotes">Notes (optional):</label>
+                    <textarea id="editNotes"></textarea>
+                </div>
+                <button type="submit">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Supabase client
+        const supabaseUrl = 'https://qdmkzjjxsoseggwwmray.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkbWt6amp4c29zZWdnd3dtcmF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM1MzAyNzEsImV4cCI6MjA0OTEwNjI3MX0.A5pQxsleHRntqc0BT_MFsVWQiNscO7Cn9YVGAf5RBVo'
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey)
+
+        let allRecipes = []; // Store all recipes for filtering
+        
+        // Load recipes when page loads
+        window.addEventListener('load', loadRecipes);
+
+        // Search and filter functionality
+        document.getElementById('searchInput').addEventListener('input', filterRecipes);
+        document.getElementById('showIngredientsFilter').addEventListener('change', function() {
+            const showIngredients = this.checked;
+            const ingredientsLists = document.querySelectorAll('.ingredients-list');
+            ingredientsLists.forEach(list => {
+                list.style.display = showIngredients ? 'block' : 'none';
+            });
+        });
+
+        function filterRecipes() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            const filteredRecipes = allRecipes.filter(recipe => {
+                // Safely check each field, handling null/undefined values
+                const titleMatch = recipe.title?.toLowerCase().includes(searchTerm) || false;
+                const ingredientsMatch = recipe.ingredients?.toLowerCase().includes(searchTerm) || false;
+                const proteinMatch = recipe.protein?.toLowerCase().includes(searchTerm) || false;
+                const notesMatch = recipe.notes?.toLowerCase().includes(searchTerm) || false;
+                
+                return titleMatch || ingredientsMatch || proteinMatch || notesMatch;
+            });
+
+            displayRecipes(filteredRecipes);
+        }
+
+        async function loadRecipes() {
+            try {
+                const { data: recipes, error } = await supabaseClient
+                    .from('recipes')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                
+                allRecipes = recipes; // Store all recipes
+                displayRecipes(recipes);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('recipes').innerHTML = '<p>Error loading recipes</p>';
+            }
+        }
+
+        function displayRecipes(recipes) {
+            const recipesDiv = document.getElementById('recipes');
+            const showIngredients = document.getElementById('showIngredientsFilter').checked;
+            
+            if (recipes.length === 0) {
+                recipesDiv.innerHTML = '<p>No recipes found.</p>';
+                return;
+            }
+            
+            recipesDiv.innerHTML = recipes.map(recipe => {
+                const ingredientsList = recipe.ingredients
+                    .split('\n')
+                    .filter(ingredient => ingredient.trim())
+                    .map(ingredient => `<li>${ingredient.trim()}</li>`)
+                    .join('');
+                
+                return `
+                    <div class="recipe-card">
+                        <div class="recipe-actions">
+                            <button class="edit-btn" onclick="editRecipe(${recipe.id})">Edit</button>
+                            <button class="delete-btn" onclick="deleteRecipe(${recipe.id})">Delete</button>
+                        </div>
+                        <h3>
+                            ${recipe.title}
+                            <span style="background-color: #2196F3; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 10px;">
+                                ${recipe.protein || ''}
+                            </span>
+                        </h3>
+                        <ul class="ingredients-list" style="display: ${showIngredients ? 'block' : 'none'}">
+                            ${ingredientsList}
+                        </ul>
+                        ${recipe.notes ? `<div class="notes">${recipe.notes.replace(/\n/g, '<br>')}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Modal functionality
+        const modal = document.getElementById('editModal');
+        const closeBtn = document.getElementsByClassName('close')[0];
+        
+        closeBtn.onclick = function() {
+            modal.style.display = "none";
+        }
+        
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // Edit recipe functionality
+        async function editRecipe(id) {
+            try {
+                const { data: recipe, error } = await supabaseClient
+                    .from('recipes')
+                    .select('*')
+                    .eq('id', id)
+                    .single();
+                
+                if (error) throw error;
+                
+                document.getElementById('editId').value = recipe.id;
+                document.getElementById('editTitle').value = recipe.title;
+                document.getElementById('editProtein').value = recipe.protein;
+                document.getElementById('editIngredients').value = recipe.ingredients;
+                document.getElementById('editBoxable').checked = recipe.boxable;
+                document.getElementById('editNotes').value = recipe.notes || '';
+                
+                modal.style.display = "block";
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error loading recipe for editing');
+            }
+        }
+
+        // Handle edit form submission
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const id = document.getElementById('editId').value;
+            try {
+              const { error } = await supabaseClient
+                  .from('recipes')
+                  .update({
+                      title: document.getElementById('editTitle').value,
+                      protein: document.getElementById('editProtein').value,  // Add this line
+                      ingredients: document.getElementById('editIngredients').value,
+                      boxable: document.getElementById('editBoxable').checked,
+                      notes: document.getElementById('editNotes').value
+                  })
+                  .eq('id', id);
+                
+                if (error) throw error;
+                
+                modal.style.display = "none";
+                loadRecipes(); // Refresh the recipe list
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error saving changes');
+            }
+        });
+
+        // Delete recipe functionality
+        async function deleteRecipe(id) {
+            if (confirm('Are you sure you want to delete this recipe?')) {
+                try {
+                    const { error } = await supabaseClient
+                        .from('recipes')
+                        .delete()
+                        .eq('id', id);
+                    
+                    if (error) throw error;
+                    
+                    loadRecipes(); // Refresh the recipe list
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Error deleting recipe');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
